@@ -22,11 +22,18 @@ int main(int argc, char* argv[]) {
     // define as informações do endereço do servidor
     struct sockaddr_in server_addr;
     server_addr.sin_family = AF_INET;
-    server_addr.sin_addr.s_addr = inet_addr(SERVER_IP);
+    // Verifica se o endereço IP é válido
+    if (inet_pton(AF_INET, SERVER_IP, &server_addr.sin_addr) <= 0) {
+        printf("Erro: endereço IP inválido, configure novamente no arquivo ./config.h\n");
+        return 1;
+    }
     server_addr.sin_port = htons(SERVER_PORT);
 
     // conecta ao servidor usando as informações de endereço definidas acima
-    connect(socket_fd, (struct sockaddr*)&server_addr, sizeof(server_addr));
+    if (connect(socket_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) == -1) {
+        printf("Erro: não foi possível conectar ao servidor\n");
+        return 1;
+    }
 
     char buffer[BUFFER_SIZE]; // declara string de tamanho fixo que armazena as mensagens
     int num = 1; // define N0 com o valor 1
