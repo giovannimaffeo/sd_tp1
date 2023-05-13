@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 
+
 int main(int argc, char *argv[]) {
     if (argc != 3) {
         printf("Erro: número incorreto de argumentos\n");
