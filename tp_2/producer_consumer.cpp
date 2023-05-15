@@ -28,7 +28,7 @@ int insertItem(bufferItem item) {
 }
 
 // função "producer"
-void *producer() {
+void* producer(void*) {
    bufferItem item; // delcara variável item 
    srand(time(NULL)); // incializa semente usando tempo atual
 
@@ -72,7 +72,7 @@ int isPrime(int num) {
 }
 
 // função "consumer"
-void *consumer() {
+void* consumer(void*) {
     bufferItem item; // delcara variável item 
     int consumed = 0; // variável local para contar elementos consumidos por cada consumidor
 
