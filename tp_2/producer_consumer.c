@@ -8,15 +8,16 @@
 pthread_mutex_t mutex; // semáforo mutex
 sem_t full, empty; // semáforos contadores
 
-// buffer
-typedef int buffer_item;
-#define BUFFER_SIZE 5
-buffer_item buffer[BUFFER_SIZE]; 
+typedef int bufferItem; // declara tipo de bufferItem
+bufferItem *buffer; // declara buffer do tipo array de bufferItem
+int bufferSize; // delcara variável com tamanho do buffer
 int counter; // contador do buffer para inserir elementos
 
+int stopProgram = 0; // variável compartilhada que encerra programa
+
 // função que insere item ao buffer
-int insertItem(buffer_item item) {
-   if(counter < BUFFER_SIZE) {
+int insertItem(bufferItem item) {
+   if(counter < bufferSize) {
       buffer[counter] = item; 
       counter++;
       return 0;
@@ -28,7 +29,7 @@ int insertItem(buffer_item item) {
 
 // função "producer"
 void *producer() {
-   buffer_item item; // delcara variável item 
+   bufferItem item; // delcara variável item 
    srand(time(NULL)); // incializa semente usando tempo atual
 
    while(1) {
@@ -50,7 +51,7 @@ void *producer() {
 }
 
 // função que remove item do buffer
-int removeItem(buffer_item *item) {
+int removeItem(bufferItem *item) {
    if(counter > 0) {
       *item = buffer[(counter - 1)]; 
       counter--;
@@ -72,7 +73,8 @@ int isPrime(int num) {
 
 // função "consumer"
 void *consumer() {
-    buffer_item item; // delcara variável item 
+    bufferItem item; // delcara variável item 
+    int consumed = 0; // variável local para contar elementos consumidos por cada consumidor
 
    while(1) {
       sem_wait(&full); // espera se o semáforo "full" for zero
@@ -82,7 +84,14 @@ void *consumer() {
         // erro quando o buffer está vazio: nunca deveria ocorrer
         fprintf(stderr, "consumidor: erro ao consumir item do buffer\n");
       } else {
-        printf("consumidor consumiu %d que %s primo\n", item, isPrime(item) ? "é" : "não é");
+        printf("consumidor %lu consumiu %d que %s primo\n", pthread_self(), item, isPrime(item) ? "é" : "não é");
+        consumed++; // incrementa o contador de elementos consumidos
+      }
+
+      if (consumed == 5) { // condição de parada: primeiro consumidor consumiu 10^5 elementos
+        printf("encerrando programa: foram consumidos %d elementos pelo consumidor %lu\n", consumed, pthread_self());
+        stopProgram = 1;
+        while(1); // thread espera para ser encerrada
       }
 
       pthread_mutex_unlock(&mutex); // liberta o buffer 
@@ -92,10 +101,13 @@ void *consumer() {
 
 int main(int argc, char *argv[]) {
     if (argc != 4) {
-        printf("Erro: número incorreto de argumentos\n");
-        printf("Uso correto: %s <N> <Np> <Nc>\n", argv[0]);
+        printf("erro: número incorreto de argumentos\n");
+        printf("uso correto: %s <N> <Np> <Nc>\n", argv[0]);
         return -1;
     }
+
+    bufferSize = atoi(argv[1]); // define tamanho do buffer 
+    buffer = (bufferItem*)malloc(bufferSize * sizeof(bufferItem)); // alocação dinâmica do buffer
 
     int np = atoi(argv[2]); // número de threads produtoras
     int nc = atoi(argv[3]); // número de threads consumidoras
@@ -103,7 +115,7 @@ int main(int argc, char *argv[]) {
     // inicialização dos semáforos
     pthread_mutex_init(&mutex, NULL);
     sem_init(&full, 0, 0);
-    sem_init(&empty, 0, BUFFER_SIZE);
+    sem_init(&empty, 0, bufferSize);
     counter = 0; // incializa contador do buffer
 
     // armazena em attr os atributos padrão de uma thread
@@ -123,10 +135,21 @@ int main(int argc, char *argv[]) {
       pthread_create(&cThreads[i], &attr, consumer, NULL);
    }
 
-   /* Sleep for the specified amount of time in milliseconds */
-   usleep(10000);
+   // espera até que o primeiro consumidor consuma 10^5 elementos
+   while(!stopProgram); 
 
-   /* Exit the program */
-   printf("Exit the program\n");
+   // encerra todas as threads
+   for (i = 0; i < np; i++) {
+    pthread_cancel(pThreads[i]); // encerra a thread usando o id
+   }
+   for (i = 0; i < nc; i++) {
+    pthread_cancel(cThreads[i]); // encerra a thread usando o id
+   }   
+
+   // libera os recursos e encerra o programa
+   pthread_mutex_destroy(&mutex);
+   sem_destroy(&full);
+   sem_destroy(&empty);
+   free(buffer);
    return 0;
 }
