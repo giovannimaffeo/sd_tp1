@@ -40,7 +40,7 @@ void* producer(void*) {
 
       if(insertItem(item)) {
         // erro quando o buffer está cheio: nunca deveria ocorrer
-        fprintf(stderr, "produtor: erro ao inserir item no buffer\n");
+        printf("produtor: erro ao inserir item no buffer\n");
       } else {
         printf("produtor produziu %d\n", item);
       }
@@ -82,7 +82,7 @@ void* consumer(void*) {
 
       if(removeItem(&item)) {
         // erro quando o buffer está vazio: nunca deveria ocorrer
-        fprintf(stderr, "consumidor: erro ao consumir item do buffer\n");
+        printf("consumidor: erro ao consumir item do buffer\n");
       } else {
         printf("consumidor %lu consumiu %d que %s primo\n", pthread_self(), item, isPrime(item) ? "é" : "não é");
         consumed++; // incrementa o contador de elementos consumidos
