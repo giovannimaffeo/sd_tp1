@@ -50,15 +50,3 @@ public:
         printf("\n");
     }
 };
-
-int main() {
-    LinkedList list;
-    
-    list.append(2);
-    list.append(3);
-    list.append(4);
-
-    list.printWhileDestroyList();
-
-    return 0;
-}
