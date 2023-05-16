@@ -4,6 +4,7 @@
 #include <semaphore.h>
 #include <unistd.h>
 #include <time.h>
+#include <math.h>
 // inclusão da classe linkedList desenvolvida
 #include "linked_list.cpp" 
 
@@ -17,6 +18,8 @@ int counter; // índice do buffer para inserir ou retirar elementos
 
 int stopProgram = 0; // variável compartilhada que encerra programa
 int consumed = 0; // variável global para contar total de elementos consumidos 
+int processed = 0; // variável global para contar total de elementos processados 
+pthread_mutex_t processedMutex; // semáforo mutex para proteger processed
 
 LinkedList occupancyList; // linkedList para armazenar a ocupação do buffer
 struct timespec startTime; // variável para armazenar o tempo de início
@@ -76,13 +79,25 @@ int removeItem(bufferItem *item) {
    }
 }
 
+void updateProcessed() {
+   // mutex protege acesso a variável processed
+   pthread_mutex_lock(&processedMutex); 
+   processed++;
+   printf("processados %d\n", processed);
+   pthread_mutex_unlock(&processedMutex);
+}
+
 // função que verifica se um número é primo
 int isPrime(int num) {
-    if (num < 2) return 0;
-    for (int i = 2; i < num; i++) {
-        if (num % i == 0) return 0;
-    }
-    return 1;
+   if (num < 2) return 0;
+      for (int i = 2; i < num; i++) {
+         if (num % i == 0) {
+         updateProcessed();
+         return 0;
+      }
+   }
+   updateProcessed();
+   return 1;
 }
 
 // função "consumer"
@@ -98,11 +113,13 @@ void* consumer(void*) {
          printf("consumidor: erro ao consumir item do buffer\n");
       } else {
          consumed++;
-         printf("%d\n", consumed);
-         printf("consumidor %lu consumiu %d que %s primo\n", pthread_self(), item, isPrime(item) ? "é" : "não é");
+         printf("consumido %d pelo consumidor %lu\n", item, pthread_self());
+         printf("consumidos %d\n", consumed);
       }
 
-      if (consumed == 10) { // condição de parada: primeiro consumidor a consumir o 10^5 elemento
+      if (consumed == 100000) { // condição de parada: primeiro consumidor a consumir o 10^5 elemento
+         printf("consumidor %lu processou %d que %s primo\n", pthread_self(), item, isPrime(item) ? "é" : "não é");
+         while(processed != consumed); // espera até que todos os números sejam processados
          printf("encerrando programa: foram consumidos %d, o último foi pelo consumidor %lu\n", consumed, pthread_self());
          stopProgram = 1;
          while(1); // thread espera para ser encerrada
@@ -110,6 +127,8 @@ void* consumer(void*) {
 
       pthread_mutex_unlock(&mutex); // liberta o buffer 
       sem_post(&empty); // incrementa semáforo "empty"
+
+      printf("consumidor %lu processou %d que %s primo\n", pthread_self(), item, isPrime(item) ? "é" : "não é");
    }
 }
 
@@ -130,6 +149,7 @@ int main(int argc, char *argv[]) {
 
    // inicialização dos semáforos
    pthread_mutex_init(&mutex, NULL);
+   pthread_mutex_init(&processedMutex, NULL);
    sem_init(&full, 0, 0);
    sem_init(&empty, 0, bufferSize);
    counter = 0; // incializa contador do buffer
