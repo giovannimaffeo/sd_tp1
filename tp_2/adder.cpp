@@ -15,16 +15,6 @@ using namespace std::chrono;
 long long int totalSum;
 atomic_flag lockHeld = ATOMIC_FLAG_INIT;
 
-struct chunkInfo{
-    char *v;
-    int start, end;
-};
-
-struct arraySumInfo{
-    long long int sum;
-    double secondsElapsed;
-};
-
 void acquire(atomic_flag *lock){
     while (lock->test_and_set());
 }
@@ -112,7 +102,7 @@ pair<long long int, double> distributedArraySum(vector <char> array, int threads
 }
 
 
-int main(int argc, char **argv){
+int main(){
     srand(time(NULL));
 
     long long int arraySize;
