@@ -89,13 +89,18 @@ void updateProcessed() {
 
 // função que verifica se um número é primo
 int isPrime(int num) {
-   if (num < 2) return 0;
-      for (int i = 2; i < num; i++) {
-         if (num % i == 0) {
+   if (num < 2) {
+      updateProcessed();
+      return 0;
+   }
+   
+   for (int i = 2; i < num; i++) {
+      if (num % i == 0) {
          updateProcessed();
          return 0;
       }
    }
+   
    updateProcessed();
    return 1;
 }
@@ -114,7 +119,7 @@ void* consumer(void*) {
       } else {
          consumed++;
          printf("consumido %d pelo consumidor %lu\n", item, pthread_self());
-         printf("consumidos %d\n", consumed);
+         printf("consumidos %d\n", consumed); 
       }
 
       if (consumed == 100000) { // condição de parada: primeiro consumidor a consumir o 10^5 elemento
