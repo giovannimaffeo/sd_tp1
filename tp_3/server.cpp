@@ -24,6 +24,7 @@
 
 #include <string.h>
 #include <iostream>
+#include <fstream>
 
 #include "config.h"
 // #define BUFSIZE 2000
@@ -35,6 +36,7 @@ LinkedList requests; // linkedList para armazenar as requests
 LinkedList accesses; // linkedList para armazenar os acessos
 pthread_mutex_t mutex; // semáforo mutex de acesso a região crítica
 pthread_mutex_t requests_mutex; // semáforo mutex de acesso a região crítica
+pthread_mutex_t log_mutex; // semáforo mutex de escrita no log do servidor
 
 using namespace std;
 // Server data structure: keeps track of how many workers are
@@ -71,6 +73,13 @@ string createMessage(int messageType, int process_id){
     while(size(message)<10)
         message = message + '0';
     return message;
+}
+
+void writeToLog(string logMessage){
+	ofstream outfile;
+	outfile.open("Server_Log.txt", ios::app); // append instead of overwrite
+	outfile << logMessage << endl;
+	outfile.close();
 }
 
 int main(int argc, char **argv)
@@ -251,7 +260,7 @@ void *worker(void *arg)
 		}
 
 		pthread_mutex_lock(&requests_mutex); // bloqueia acesso a lista de requests
-		printf("[SERVIDOR] Recebido: %s", buf);
+		// printf("[SERVIDOR] Recebido: %s", buf);
 
 		string receivedMessage = buf;
 		int i = receivedMessage.find("|");
@@ -261,11 +270,20 @@ void *worker(void *arg)
 
 		if(receveidMessageType == 1){ // Received request
 			requests.append(receveidProcessID);
+
+			pthread_mutex_lock(&log_mutex);
+			writeToLog("[R] Request -"+to_string(receveidProcessID));
+			pthread_mutex_unlock(&log_mutex);
+
 			pthread_mutex_unlock(&requests_mutex); // libera acesso a lista de requests
 
 			while (requests.getHeadValue() != receveidProcessID);
 
 			pthread_mutex_lock(&mutex); // espera para entrar na região crítica
+
+			pthread_mutex_lock(&log_mutex);
+			writeToLog("[S] Grant -"+to_string(receveidProcessID));
+			pthread_mutex_unlock(&log_mutex);
 
 			string grantMessage = createMessage(2, receveidProcessID);
 			fprintf(write_fh, "%s\n", grantMessage.c_str());
@@ -273,10 +291,16 @@ void *worker(void *arg)
         }
         if(receveidMessageType == 3){ // Received release
             requests.pop();
+
+			pthread_mutex_lock(&log_mutex);
+			writeToLog("[R] Release -"+to_string(receveidProcessID));
+			pthread_mutex_unlock(&log_mutex);
+
 			pthread_mutex_unlock(&requests_mutex); // libera acesso a lista de requests
 			pthread_mutex_unlock(&mutex); // libera o acesso a região crítica
         }
 	}
+	printf("Finishing worker...\n");
 
 	// Close the file handles wrapping the client socket
 	fclose(read_fh);
