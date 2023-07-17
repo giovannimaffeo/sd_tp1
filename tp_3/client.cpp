@@ -45,7 +45,7 @@ int main(int argc, char *argv[]){
     // pid_t child = fork();
     process_id = atoi(argv[1]);
     int r = atoi(argv[2]); // Número de requisições à região crítica
-    int k = 1;
+    int k = atoi(argv[3]); // Tempo em segundos que o cliente deve dormir após escrever no arquivo
     
 	int rc;
 
@@ -96,6 +96,7 @@ int main(int argc, char *argv[]){
         outfile.open("Resultados.txt", ios::app); // append instead of overwrite
         outfile << "[" << process_id << "] " << formatted_time << endl;
         outfile.close();
+        sleep(k);
         
         cout << "[CLIENTE " << process_id << "] Enviando release ao servidor..." << endl;
         fprintf(write_fh, "%s\n", releaseMessage.c_str());
