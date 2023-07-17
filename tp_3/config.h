@@ -1,0 +1,8 @@
+#ifndef CONFIG_H_INCLUDED
+#define CONFIG_H_INCLUDED
+
+#define SERVER_PORT 8989
+#define BUFFER_SIZE 100
+#define SERVER_IP "127.0.0.1"
+
+#endif
