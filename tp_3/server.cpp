@@ -36,15 +36,10 @@
 LinkedList requests; // linkedList para armazenar as requests
 std::vector<int> accesses(128, 0); // vetor para armazenar acessos por cliente
 pthread_mutex_t mutex; // semáforo mutex de acesso a região crítica
-<<<<<<< HEAD
-pthread_mutex_t requests_mutex; // semáforo mutex de acesso a lista de requisições 
-//pthread_mutex_t accesses_mutex; // semáforo mutex de acesso a lista de acessos por processo
-
-bool done = false; // Declaração da variável global "done"
-=======
 pthread_mutex_t requests_mutex; // semáforo mutex de acesso a região crítica
 pthread_mutex_t log_mutex; // semáforo mutex de escrita no log do servidor
->>>>>>> 5903e652e5622b65f2dec8bffd90253ec7c57a97
+
+bool done = false; // Declaração da variável global "done"
 
 using namespace std;
 // Server data structure: keeps track of how many workers are
@@ -323,14 +318,11 @@ void *worker(void *arg)
 
 			pthread_mutex_lock(&mutex); // espera para entrar na região crítica
 
-<<<<<<< HEAD
 			// incrementa número de acessos a região crítica pela thread 
 			accesses[receveidProcessID]++; 
-=======
 			pthread_mutex_lock(&log_mutex);
 			writeToLog("[S] Grant -"+to_string(receveidProcessID));
 			pthread_mutex_unlock(&log_mutex);
->>>>>>> 5903e652e5622b65f2dec8bffd90253ec7c57a97
 
 			string grantMessage = createMessage(2, receveidProcessID);
 			fprintf(write_fh, "%s\n", grantMessage.c_str());
