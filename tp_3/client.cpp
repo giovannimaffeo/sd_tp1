@@ -87,7 +87,11 @@ int main(int argc, char *argv[]){
 	    fprintf(write_fh, "%s\n", requestMessage.c_str());
 		fflush(write_fh);
 
-		fgets(buffer, BUFFER_SIZE, read_fh);
+        // Read one line from the server
+		if (!fgets(buffer, BUFFER_SIZE, read_fh)) {
+			break; // connection was interrupted?
+		}
+
         cout << "[CLIENTE " << process_id << "] Recebido: " << buffer;
 
         // Escreve hora no arquivo Resultados 

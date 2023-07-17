@@ -75,4 +75,20 @@ public:
             return -1;
         }
     }
+
+    // método para percorrer os nós da linked_list e imprimir o valor de cada nó em sequência
+    void print(const std::string& phrase) {
+        Node* currentNode = head;
+        std::string result;
+
+        while (currentNode != nullptr) {
+            result += std::to_string(currentNode->value);
+            if (currentNode->next != nullptr) {
+                result += "-";
+            }
+            currentNode = currentNode->next;
+        }
+
+        std::cout << phrase << result << std::endl;
+    }
 };

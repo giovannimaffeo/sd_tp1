@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <sys/time.h>
+#include <vector>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -32,9 +33,12 @@
 #include "linked_list.cpp" 
 
 LinkedList requests; // linkedList para armazenar as requests
-LinkedList accesses; // linkedList para armazenar os acessos
+std::vector<int> accesses(128, 0); // vetor para armazenar acessos por cliente
 pthread_mutex_t mutex; // semáforo mutex de acesso a região crítica
-pthread_mutex_t requests_mutex; // semáforo mutex de acesso a região crítica
+pthread_mutex_t requests_mutex; // semáforo mutex de acesso a lista de requisições 
+//pthread_mutex_t accesses_mutex; // semáforo mutex de acesso a lista de acessos por processo
+
+bool done = false; // Declaração da variável global "done"
 
 using namespace std;
 // Server data structure: keeps track of how many workers are
@@ -59,6 +63,9 @@ void *server(void *arg);
 
 // Worker task - chats with clients
 void *worker(void *arg);
+
+// Handle CLI task - Command Line Interface
+void* handle_cli(void* arg);
 
 string createMessage(int messageType, int process_id){
     /*  Request = 1
@@ -93,20 +100,54 @@ int main(int argc, char **argv)
 	pthread_t thr;
 	pthread_create(&thr, NULL, &server, s);
 
-	// Wait for shutdown and for workers to finish
+	// Start handle CLI thread
+	pthread_t interface_thr;
+    pthread_create(&interface_thr, nullptr, &handle_cli, s);
+
+	/*// Wait for shutdown and for workers to finish
 	pthread_mutex_lock(&s->lock);
 	while (!s->shutdown_requested || s->num_workers > 0) {
 		pthread_cond_wait(&s->cond, &s->lock);
 	}
-	pthread_mutex_unlock(&s->lock);
+	pthread_mutex_unlock(&s->lock);*/
 
-	// Join server thread
-	pthread_join(thr, NULL);
+	// Join threads
+	pthread_join(thr, nullptr);
+    pthread_join(interface_thr, nullptr);
 
 	// Free Server structure
 	free(s);
 
 	return 0;
+}
+
+// Função que será executada pela thread da interface
+void* handle_cli(void* arg) {
+    while (true) {
+        std::cout << "Digite o comando (1: imprimir fila de pedidos, 2: imprimir quantidade de atendimentos, 3: encerrar): ";
+
+        std::string command;
+        std::getline(std::cin, command);
+
+        if (command == "1") {
+			pthread_mutex_lock(&requests_mutex); // bloqueia acesso a lista de requests
+			requests.print("Fila de pedidos atual: ");
+			pthread_mutex_unlock(&requests_mutex); // bloqueia acesso a lista de requests
+        } else if (command == "2") {
+            for (int i = 0; i < accesses.size(); i++) {
+				if (accesses[i] != 0) {
+					std::cout << "Processo " << i << " foi atendido: " << accesses[i] << std::endl;
+				}
+			}
+        } else if (command == "3") {
+            done = true;
+            break;
+        } else {
+            std::cout << "Comando inválido! Tente novamente." << std::endl;
+        }
+    }
+
+    return nullptr;
 }
 
 void *server(void *arg)
@@ -151,7 +192,6 @@ void *server(void *arg)
 		exit(1);
 	}
 
-	int done = 0;
 	while (!done) {
 		// Use select to see if there are any incoming connections
 		// ready to accept
@@ -242,8 +282,6 @@ void *worker(void *arg)
 	FILE *read_fh = fdopen(read_fd, "r");
 	FILE *write_fh = fdopen(write_fd, "w");
 
-	int done = 0;
-
 	while (!done) {
 		// Read one line from the client
 		if (!fgets(buf, BUFFER_SIZE, read_fh)) {
@@ -251,7 +289,7 @@ void *worker(void *arg)
 		}
 
 		pthread_mutex_lock(&requests_mutex); // bloqueia acesso a lista de requests
-		printf("[SERVIDOR] Recebido: %s", buf);
+		//printf("[SERVIDOR] Recebido: %s", buf);
 
 		string receivedMessage = buf;
 		int i = receivedMessage.find("|");
@@ -266,6 +304,9 @@ void *worker(void *arg)
 			while (requests.getHeadValue() != receveidProcessID);
 
 			pthread_mutex_lock(&mutex); // espera para entrar na região crítica
+
+			// incrementa número de acessos a região crítica pela thread 
+			accesses[receveidProcessID]++; 
 
 			string grantMessage = createMessage(2, receveidProcessID);
 			fprintf(write_fh, "%s\n", grantMessage.c_str());
