@@ -46,6 +46,7 @@ int main(int argc, char *argv[]){
     process_id = atoi(argv[1]);
     int r = atoi(argv[2]); // Número de requisições à região crítica
     int k = atoi(argv[3]); // Tempo em segundos que o cliente deve dormir após escrever no arquivo
+    int test_index = atoi(argv[4])
     
 	int rc;
 
@@ -97,7 +98,7 @@ int main(int argc, char *argv[]){
         // Escreve hora no arquivo Resultados 
         auto now = chrono::system_clock::now();
         string formatted_time = formatTime(now);
-        outfile.open("Resultados.txt", ios::app); // append instead of overwrite
+        outfile.open("Resultados_" + test_index + ".txt", ios::app); // append instead of overwrite
         outfile << "[" << process_id << "] " << formatted_time << endl;
         outfile.close();
         sleep(k);

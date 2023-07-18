@@ -68,6 +68,8 @@ void *worker(void *arg);
 // Handle CLI task - Command Line Interface
 void* handle_cli(void* arg);
 
+int test_index;
+
 string createMessage(int messageType, int process_id){
     /*  Request = 1
         Grant = 2
@@ -83,13 +85,14 @@ string createMessage(int messageType, int process_id){
 
 void writeToLog(string logMessage){
 	ofstream outfile;
-	outfile.open("Server_Log.txt", ios::app); // append instead of overwrite
+	outfile.open("Server_Log_"+ test_index + ".txt", ios::app); // append instead of overwrite
 	outfile << logMessage << endl;
 	outfile.close();
 }
 
 int main(int argc, char **argv)
 {
+	test_index = atoi(argv[1]);
 	// if (argc != 2) {
 	// 	fprintf(stderr, "Usage: ./server4 <port>\n");
 	// 	exit(1);
