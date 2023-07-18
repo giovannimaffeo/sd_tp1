@@ -9,6 +9,7 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <string.h>
+#include <ostream>
 
 #include "config.h"
 
@@ -31,13 +32,22 @@ string createMessage(int messageType, int process_id){
 
 using time_point = std::chrono::system_clock::time_point;
 string formatTime( const time_point& time){
-    string format = "%H:%M:%S";
+    string format = "%d/%m/%Y - %H:%M:%S";
     time_t tt = chrono::system_clock::to_time_t(time);
     tm tm = *localtime(&tt); //Locale time-zone, usually UTC by default.
     stringstream ss;
     ss << put_time( &tm, format.c_str() );
+
     auto ms = chrono::duration_cast<chrono::milliseconds>(time.time_since_epoch()) - chrono::duration_cast<chrono::seconds>(time.time_since_epoch());
-    string time_formatted = ss.str() + "." + to_string(ms.count());
+    ostringstream oss;
+    // Set the fill character to '0'
+    oss << setfill('0');
+    oss << setw(3);
+    // Append the number with leading zeros to the string
+    oss << ms.count();
+    string ms_str = oss.str();
+    
+    string time_formatted = ss.str() + "." + ms_str;
     return time_formatted;
 }
 

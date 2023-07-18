@@ -1,82 +1,69 @@
 #include <stdio.h>
 #include <cstdio>
 
-// classe para o nó da lista encadeada
+// Class for the linked list node
 class Node {
 public:
     int value;
     Node* next;
 
-    // construtor do nó
+    // Node constructor
     Node(int value) : value(value), next(nullptr) {}
 };
 
-// classe para a lista encadeada
+// Class for the linked list
 class LinkedList {
 public:
     Node* head;
     Node* tail;
 
-    // construtor da lista encadeada
+    // Linked list constructor
     LinkedList() : head(nullptr), tail(nullptr) {}
 
-    // método para inserir nó na lista encadeada
+    // Method to insert a node into the linked list
     void append(int value) {
-        // cria novo nó a ser inserido
+        // Create a new node to be inserted
         Node* newNode = new Node(value);
 
         if (head == nullptr) {
-            // caso a lista esteja vazia, insere nó como head e tail
+            // If the list is empty, insert the node as both head and tail
             head = tail = newNode;
         } else {
-            // insere novo nó como último elemento e atualiza o tail
+            // Insert the new node as the last element and update the tail
             tail->next = newNode;
             tail = newNode;
         }
     }
 
-    // método para remover o elemento head da fila
+    // Method to remove the head element from the list
     void pop() {
         if (head != nullptr) {
-            Node* temp = head;  // armazena o nó da cabeça atual
+            Node* temp = head;  // Store the current head node
 
-            head = head->next;  // atualiza o head para o próximo nó
+            head = head->next;  // Update the head to the next node
 
-            // Verifica se o nó da cabeça era o único nó na lista
+            // Check if the head node was the only node in the list
             if (head == nullptr) {
-                tail = nullptr;  // atualiza o tail para nullptr
+                tail = nullptr;  // Update the tail to nullptr
             }
 
-            delete temp;  // libera a memória do nó removido
+            delete temp;  // Free the memory of the removed node
         }
     }
 
-    // método para obter o comprimento da lista encadeada
-    int length() {
-        int count = 0;  // contador de nós
-        Node* currentNode = head;  // começa a contagem pelo nó da cabeça
-
-        while (currentNode != nullptr) {
-            count++;  // incrementa o contador
-            currentNode = currentNode->next;  // move para o próximo nó
-        }
-
-        return count;
-    }
-
-    // método para obter o valor da cabeça da lista encadeada
+    // Method to get the value of the head of the linked list
     int getHeadValue() {
         if (head != nullptr) {
             return head->value;
         } else {
-            std::cerr << "A lista está vazia. Não há valor na cabeça." << std::endl;
-            // Você pode escolher como lidar com essa situação.
-            // Neste exemplo, estamos retornando -1 como um valor inválido.
+            std::cerr << "The list is empty. There is no value in the head." << std::endl;
+            // You can choose how to handle this situation.
+            // In this example, we are returning -1 as an invalid value.
             return -1;
         }
     }
 
-    // método para percorrer os nós da linked_list e imprimir o valor de cada nó em sequência
+    // Method to traverse the linked list nodes and print the value of each node in sequence
     void print(const std::string& phrase) {
         Node* currentNode = head;
         std::string result;

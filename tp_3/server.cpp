@@ -1,15 +1,5 @@
-// Like server3.c, but uses threads to allow multiple clients
-// to connect at the same time.
-
-// Running the server:
-//    ./server4 <port>
-// where <port> is the port number.
-
-// Use telnet as the client:
-//    telnet <port>
-
 #include <unistd.h>
-#include <stdio.h> // for perror()
+#include <stdio.h> 
 #include <stdlib.h>
 #include <pthread.h>
 #include <sys/time.h>
@@ -20,37 +10,32 @@
 #include <sys/socket.h>
 #include <fcntl.h>
 
-#include <netinet/in.h> // for struct sockaddr_in
-#include <arpa/inet.h> // for inet_pton
+#include <netinet/in.h>
+#include <arpa/inet.h> 
 
 #include <string.h>
 #include <iostream>
 #include <fstream>
 
 #include "config.h"
-// #define BUFSIZE 2000
 
-// inclusão da classe linkedList desenvolvida
 #include "linked_list.cpp" 
 
-LinkedList requests; // linkedList para armazenar as requests
-std::vector<int> accesses(128, 0); // vetor para armazenar acessos por cliente
+LinkedList requests; // linkedList to store the requests
+std::vector<int> accesses(128, 0); // vector to store the accesses per process
 pthread_mutex_t mutex; // semáforo mutex de acesso a região crítica
-pthread_mutex_t requests_mutex; // semáforo mutex de acesso a região crítica
-pthread_mutex_t log_mutex; // semáforo mutex de escrita no log do servidor
+pthread_mutex_t requests_mutex; // mutex semaphore to access requests list
+pthread_mutex_t accesses_mutex; // mutex semaphore for writing to the accesses vector
+pthread_mutex_t log_mutex; // mutex semaphore for writing to the server log
 
-bool done = false; // Declaração da variável global "done"
+bool done = false; // Declaration of the global variable "done"
 
 using namespace std;
+
 // Server data structure: keeps track of how many workers are
 // active, and whether a shutdown has been requested
 typedef struct {
 	int port;
-	int num_workers;
-	int shutdown_requested;
-
-	pthread_mutex_t lock;
-	pthread_cond_t cond;
 } Server;
 
 // Data used by a worker that chats with a specific client
@@ -66,9 +51,7 @@ void *server(void *arg);
 void *worker(void *arg);
 
 // Handle CLI task - Command Line Interface
-void* handle_cli(void* arg);
-
-int test_index;
+void *handle_cli(void* arg);
 
 string createMessage(int messageType, int process_id){
     /*  Request = 1
@@ -85,46 +68,27 @@ string createMessage(int messageType, int process_id){
 
 void writeToLog(string logMessage){
 	ofstream outfile;
-	outfile.open("Server_Log_"+ test_index + ".txt", ios::app); // append instead of overwrite
+	outfile.open("Server_Log.txt", ios::app); // append instead of overwrite
 	outfile << logMessage << endl;
 	outfile.close();
 }
 
 int main(int argc, char **argv)
 {
-	test_index = atoi(argv[1]);
-	// if (argc != 2) {
-	// 	fprintf(stderr, "Usage: ./server4 <port>\n");
-	// 	exit(1);
-	// }
 	Server *s = (Server*) malloc(sizeof(Server));
-
-	// Initialize Server structure
-	// s->port = atoi(argv[1]);
 	s->port = SERVER_PORT;
-	s->num_workers = 0;
-	s->shutdown_requested = 0;
-	pthread_mutex_init(&s->lock, NULL);
-	pthread_cond_init(&s->cond, NULL);
 
 	// Start server thread
-	pthread_t thr;
-	pthread_create(&thr, NULL, &server, s);
+	pthread_t server_thr;
+	pthread_create(&server_thr, NULL, &server, s);
 
 	// Start handle CLI thread
 	pthread_t interface_thr;
-    pthread_create(&interface_thr, nullptr, &handle_cli, s);
-
-	/*// Wait for shutdown and for workers to finish
-	pthread_mutex_lock(&s->lock);
-	while (!s->shutdown_requested || s->num_workers > 0) {
-		pthread_cond_wait(&s->cond, &s->lock);
-	}
-	pthread_mutex_unlock(&s->lock);*/
+    pthread_create(&interface_thr, NULL, &handle_cli, s);
 
 	// Join threads
-	pthread_join(thr, nullptr);
-    pthread_join(interface_thr, nullptr);
+	pthread_join(server_thr, NULL);
+    pthread_join(interface_thr, NULL);
 
 	// Free Server structure
 	free(s);
@@ -132,7 +96,7 @@ int main(int argc, char **argv)
 	return 0;
 }
 
-// Função que será executada pela thread da interface
+// Function executed by the interface thread
 void* handle_cli(void* arg) {
     while (true) {
         std::cout << "Digite o comando (1: imprimir fila de pedidos, 2: imprimir quantidade de atendimentos, 3: encerrar): ";
@@ -141,16 +105,18 @@ void* handle_cli(void* arg) {
         std::getline(std::cin, command);
 
         if (command == "1") {
-			pthread_mutex_lock(&requests_mutex); // bloqueia acesso a lista de requests
+			pthread_mutex_lock(&requests_mutex);
 			requests.print("Fila de pedidos atual: ");
-			pthread_mutex_unlock(&requests_mutex); // bloqueia acesso a lista de requests
+			pthread_mutex_unlock(&requests_mutex);
         } else if (command == "2") {
+			pthread_mutex_lock(&accesses_mutex);
             for (int i = 0; i < accesses.size(); i++) {
 				if (accesses[i] != 0) {
 					std::cout << "Processo " << i << " foi atendido: " << accesses[i] << std::endl;
 				}
 			}
-        } else if (command == "3") {
+			pthread_mutex_unlock(&accesses_mutex);
+        } else if (command == "3") { // end execution
             done = true;
             break;
         } else {
@@ -158,19 +124,19 @@ void* handle_cli(void* arg) {
         }
     }
 
-    return nullptr;
+    return 0;
 }
 
 void *server(void *arg)
 {
 	Server *s = (Server*) arg;
 
+	// creates socket to listen to new processes connections
 	int server_sock_fd;
-
 	server_sock_fd = socket(PF_INET, SOCK_STREAM, 0);
 	if (server_sock_fd < 0) {
 		perror("Couldn't create socket");
-		exit(1);
+		return (void*)-1;
 	}
 
 	struct sockaddr_in server_addr;
@@ -184,15 +150,12 @@ void *server(void *arg)
 		sizeof(server_addr));
 	if (rc < 0) {
 		perror("Couldn't bind server socket");
-		exit(1);
+		return (void*)-1;
 	}
 
 	// Make the server socket nonblocking
 	fcntl(server_sock_fd, F_SETFL, O_NONBLOCK);
 
-	// Create a fd_set with the server socket file descriptor
-	// (so we can use select to to a timed wait for incoming
-	// connections.)
 	fd_set fds;
 	FD_ZERO(&fds);
 	FD_SET(server_sock_fd, &fds);
@@ -204,9 +167,6 @@ void *server(void *arg)
 	}
 
 	while (!done) {
-		// Use select to see if there are any incoming connections
-		// ready to accept
-
 		// Set a 1-second timeout
 		struct timeval timeout;
 		timeout.tv_sec = 1;
@@ -215,17 +175,10 @@ void *server(void *arg)
 		// We want to wait for just the server socket
 		fd_set readyfds = fds;
 
-		// Preemptively increase the worker count
-		pthread_mutex_lock(&s->lock);
-		s->num_workers++;
-		pthread_mutex_unlock(&s->lock);
-
-		// Wait until either a connection is received, or the timeout expires
 		int rc = select(server_sock_fd+1, &readyfds, NULL, NULL, &timeout);
-		// printf("Recebi algo no socket %d\n", rc);
 		if (rc == 1) {
 			// The server socket file descriptor became ready,
-			// so we can accept a connection without blocking
+			// so we can accept a connection
 			int client_socket_fd;
 			struct sockaddr_in client_addr;
 			socklen_t client_addr_size = sizeof(client_addr);
@@ -240,43 +193,19 @@ void *server(void *arg)
 			}
 
 			// Create Worker data structure (which tells the worker
-			// thread what it's client socket fd is, and
+			// thread what its client socket fd is, and
 			// gives it access to the Server struct)
 			Worker *w = (Worker *)malloc(sizeof(Worker));
 			w->s = s;
 			w->client_fd = client_socket_fd;
 
-			// Start a worker thread (detached, since no other thread
-			// will wait for it to complete)
-			pthread_attr_t attr;
-			pthread_attr_init(&attr);
-			pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-
-			pthread_t thr;
-			pthread_create(&thr, &attr, &worker, w);
-		} else {
-			// The select timed out.
-
-			// Decrement the worker count (since worker wasn't
-			// actually started.)
-			pthread_mutex_lock(&s->lock);
-			s->num_workers--;
-			pthread_cond_broadcast(&s->cond);
-			pthread_mutex_unlock(&s->lock);
-
-			// See if a shutdown was requested, and if so, stop
-			// waiting for connections.
-			pthread_mutex_lock(&s->lock);
-			if (s->shutdown_requested) {
-				done = 1;
-			}
-			pthread_mutex_unlock(&s->lock);
+			pthread_t worker_thr;
+			pthread_create(&worker_thr, NULL, &worker, w);
 		}
 	}
 
 	close(server_sock_fd);
-
-	return NULL;
+	return 0;
 }
 
 void *worker(void *arg)
@@ -296,12 +225,11 @@ void *worker(void *arg)
 	while (!done) {
 		// Read one line from the client
 		if (!fgets(buf, BUFFER_SIZE, read_fh)) {
-			break; // connection was interrupted?
+			break; // connection was interrupted
 		}
 
-		pthread_mutex_lock(&requests_mutex); // bloqueia acesso a lista de requests
-		//printf("[SERVIDOR] Recebido: %s", buf);
-
+		pthread_mutex_lock(&requests_mutex); // lock access to the requests list
+		// gets the required information from the received message
 		string receivedMessage = buf;
 		int i = receivedMessage.find("|");
         int i2 = (receivedMessage.substr(i+1, receivedMessage.length()-i)).find("|");
@@ -317,11 +245,12 @@ void *worker(void *arg)
 
 			pthread_mutex_unlock(&requests_mutex); // libera acesso a lista de requests
 
+			// busy wait to enter the critical region until it is the head of the queue
 			while (requests.getHeadValue() != receveidProcessID);
 
-			pthread_mutex_lock(&mutex); // espera para entrar na região crítica
+			pthread_mutex_lock(&mutex); // process wait to enter in critical region
 
-			// incrementa número de acessos a região crítica pela thread 
+			// increment number of accesses to the critical region by the process
 			accesses[receveidProcessID]++; 
 			pthread_mutex_lock(&log_mutex);
 			writeToLog("[S] Grant -"+to_string(receveidProcessID));
@@ -332,14 +261,14 @@ void *worker(void *arg)
 			fflush(write_fh);
         }
         if(receveidMessageType == 3){ // Received release
-            requests.pop();
+            requests.pop(); // remove the process from the head of the queue, freeing the critical region for the next process
 
-			pthread_mutex_lock(&log_mutex);
+			pthread_mutex_lock(&log_mutex); 
 			writeToLog("[R] Release -"+to_string(receveidProcessID));
 			pthread_mutex_unlock(&log_mutex);
 
-			pthread_mutex_unlock(&requests_mutex); // libera acesso a lista de requests
-			pthread_mutex_unlock(&mutex); // libera o acesso a região crítica
+			pthread_mutex_unlock(&requests_mutex); // release access to the requests list
+			pthread_mutex_unlock(&mutex); // release access to the critical region
         }
 	}
 	printf("Finishing worker...\n");
@@ -350,12 +279,6 @@ void *worker(void *arg)
 
 	// Free Worker struct
 	free(w);
-
-	// Update worker count
-	pthread_mutex_lock(&s->lock);
-	s->num_workers--;
-	pthread_cond_broadcast(&s->cond);
-	pthread_mutex_unlock(&s->lock);
 
 	return NULL;
 }
